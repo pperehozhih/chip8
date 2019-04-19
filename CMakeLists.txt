@@ -8,18 +8,22 @@ set(IMGUI_VERSION "1.69")
 
 include(FindPackageHandleStandardArgs)
 
-# Game section
+# Lib section
+aux_source_directory(src/lib SRC_CHIP_LIB_FILE)
+file(GLOB HDR_CHIP_LIB_FILE "src/lib/*.h*")
+
+set(SRC_FILE_LIB ${SRC_FILE_LIB} ${SRC_CHIP_LIB_FILE})
+set(HDR_FILE_LIB ${HDR_FILE_LIB} ${HDR_CHIP_LIB_FILE})
+source_group("chip-lib" FILES ${SRC_CHIP_LIB_FILE} ${HDR_CHIP_LIB_FILE})
+add_library(${PROJECT_NAME}-lib ${SRC_FILE_LIB} ${HDR_FILE_LIB})
+
+# Root section
 aux_source_directory(src SRC_CHIP_ROOT_FILE)
 file(GLOB HDR_CHIP_ROOT_FILE "src/*.h*")
 
 set(SRC_FILE_SERVER ${SRC_FILE_SERVER} ${SRC_CHIP_ROOT_FILE})
 set(HDR_FILE_SERVER ${HDR_FILE_SERVER} ${HDR_CHIP_ROOT_FILE})
 source_group("chip" FILES ${SRC_CHIP_ROOT_FILE} ${HDR_CHIP_ROOT_FILE})
-
-add_executable(${PROJECT_NAME} ${SRC_FILE_SERVER} ${HDR_FILE_SERVER})
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
-# target_link_libraries(${PROJECT_NAME} "spdlog" "sr" ${LIBEV_LIBRARY} ${HIREDIS_LIBRARY} ${CURL_LIBRARIES} -lpthread)
-# add_dependencies(${PROJECT_NAME} "spdlog" "sr" "ev" "hiredis")
 
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/3rd)
 	execute_process(
@@ -76,3 +80,60 @@ if (NOT EXISTS ${CMAKE_BINARY_DIR}/imgui)
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/imgui/build"
 	)
 endif()
+
+if (NOT EXISTS ${CMAKE_BINARY_DIR}/imgui-sfml)
+	execute_process(
+		COMMAND git clone https://github.com/eliasdaler/imgui-sfml
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+	)
+endif()
+
+if (NOT EXISTS ${CMAKE_BINARY_DIR}/chip8)
+	execute_process(
+		COMMAND git clone https://github.com/dmatlack/chip8/
+		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+	)
+endif()
+
+# imgui-sfml section
+aux_source_directory("${CMAKE_BINARY_DIR}/imgui-sfml" SRC_IMGUI_SFML_ROOT_FILE)
+file(GLOB HDR_IMGUI_SFML_ROOT_FILE "${CMAKE_BINARY_DIR}/imgui-sfml/*.h*")
+
+set(SRC_FILE_SERVER ${SRC_FILE_SERVER} ${SRC_IMGUI_SFML_ROOT_FILE})
+set(HDR_FILE_SERVER ${HDR_FILE_SERVER} ${HDR_IMGUI_SFML_ROOT_FILE})
+source_group("imgui-sfml" FILES ${SRC_IMGUI_SFML_ROOT_FILE} ${HDR_IMGUI_SFML_ROOT_FILE})
+
+include_directories(
+   SYSTEM
+   ${CMAKE_BINARY_DIR}/3rd/include
+   ${CMAKE_BINARY_DIR}/imgui-sfml
+)
+
+link_directories(
+	${CMAKE_BINARY_DIR}/3rd/lib
+)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_USER_CONFIG=<imconfig-SFML.h>")
+
+add_executable(${PROJECT_NAME} ${SRC_FILE_SERVER} ${HDR_FILE_SERVER})
+add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}-lib)
+target_link_libraries(${PROJECT_NAME}
+	imgui
+	sfml-audio-s
+	sfml-graphics-s
+	sfml-network-s
+	sfml-system-s
+	sfml-window-s
+	${PROJECT_NAME}-lib
+)
+
+if (APPLE)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework  CoreFoundation")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework  AppKit")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework  OpenGL")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework  IOKit")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework  Cocoa")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -framework  Carbon")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ObjC")
+endif()
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
